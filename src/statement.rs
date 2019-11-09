@@ -19,7 +19,10 @@ pub struct StandAloneCall {}
 
 pub struct SingleQuery {}
 
-pub struct Union {}
+pub struct Union {
+    pub all: bool,
+    pub single_query: SingleQuery,
+}
 
 pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
     match parse_query(input) {
@@ -77,10 +80,23 @@ pub fn parse_single_query(input: &str) -> IResult<&str, SingleQuery> {
 pub fn parse_union(input: &str) -> IResult<&str, Union> {
     match tuple((
         tag_no_case("UNION"),
+        white_space,
         opt(tag_no_case("ALL")),
+        white_space,
         parse_single_query,
-    ))(input) {
-        Ok() => 
+    ))(input)
+    {
+        Ok((o, (union, _, all, _, single))) => Ok((
+            o,
+            Union {
+                all: match all {
+                    Some(_) => true,
+                    None => false,
+                },
+                single_query: single,
+            },
+        )),
+        Err(e) => Err(nom::Err::convert(e)),
     }
 }
 
