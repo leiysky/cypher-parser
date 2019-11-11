@@ -62,6 +62,9 @@ pub struct RelationshipDetail {
 
 type RelationshipType = SchemaName;
 
+#[derive(PartialEq, Debug)]
+pub enum Expr {}
+
 pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
     map(
         tuple((
@@ -134,9 +137,9 @@ pub fn parse_node_pattern(input: &str) -> IResult<&str, NodePattern> {
     map(
         tuple((
             char('('),
-            opt(map(tuple((parse_variable, opt(white_space))), |v| v.0)),
-            many0(map(tuple((parse_node_label, opt(white_space))), |v| v.0)),
-            opt(map(tuple((parse_properties, opt(white_space))), |v| v.0)),
+            opt(map(tuple((parse_variable, opt_white_space)), |v| v.0)),
+            many0(map(tuple((parse_node_label, opt_white_space)), |v| v.0)),
+            opt(map(tuple((parse_properties, opt_white_space)), |v| v.0)),
             char(')'),
         )),
         |v| NodePattern {
@@ -189,19 +192,20 @@ pub fn parse_relationship_pattern(input: &str) -> IResult<&str, RelationshipPatt
 pub fn parse_relationship_detail(input: &str) -> IResult<&str, RelationshipDetail> {
     map(
         tuple((
-            opt(white_space),
+            char('['),
+            opt_white_space,
             opt(map(tuple((parse_variable, white_space)), |v| v.0)),
             map(
                 opt(tuple((
                     char(':'),
-                    opt(white_space),
+                    opt_white_space,
                     parse_schema_name,
                     many0(map(
                         tuple((
-                            opt(white_space),
+                            opt_white_space,
                             char('|'),
                             opt(char(':')),
-                            opt(white_space),
+                            opt_white_space,
                             parse_schema_name,
                         )),
                         |v| v.4,
@@ -209,7 +213,7 @@ pub fn parse_relationship_detail(input: &str) -> IResult<&str, RelationshipDetai
                 ))),
                 |v| match v {
                     Some((_, _, n, nn)) => {
-                        let types = vec![n];
+                        let mut types = vec![n];
                         types.extend(nn);
                         types
                     }
@@ -219,12 +223,12 @@ pub fn parse_relationship_detail(input: &str) -> IResult<&str, RelationshipDetai
             map(
                 opt(tuple((
                     char('*'),
-                    opt(white_space),
-                    opt(tuple((parse_literal_integer, opt(white_space)))),
+                    opt_white_space,
+                    opt(tuple((parse_literal_integer, opt_white_space))),
                     opt(tuple((
                         tag(".."),
-                        opt(white_space),
-                        opt(tuple((parse_literal_integer, opt(white_space)))),
+                        opt_white_space,
+                        opt(tuple((parse_literal_integer, opt_white_space))),
                     ))),
                 ))),
                 |v| {
@@ -241,12 +245,13 @@ pub fn parse_relationship_detail(input: &str) -> IResult<&str, RelationshipDetai
                 },
             ),
             opt(parse_properties),
+            char(']'),
         )),
         |v| RelationshipDetail {
-            variable: v.1,
-            rel_types: v.2,
-            range: v.3,
-            properties: v.4,
+            variable: v.2,
+            rel_types: v.3,
+            range: v.4,
+            properties: v.5,
         },
     )(input)
 }
@@ -256,4 +261,29 @@ pub fn parse_properties(input: &str) -> IResult<&str, Properties> {
         map(parse_map_literal, |v| Properties::MapLiteral(v)),
         map(parse_parameter, |v| Properties::Parameter(v)),
     ))(input)
+}
+
+pub fn parse_expr(input: &str) -> IResult<&str, Expr> {
+    unimplemented!()
+}
+
+#[cfg(test)]
+mod parse_expr_test {
+    use super::*;
+
+    #[test]
+    fn test_parse_relationship_detail() {
+        assert_eq!(
+            parse_relationship_detail("[:Type*1..]"),
+            Ok((
+                "",
+                RelationshipDetail {
+                    variable: None,
+                    rel_types: vec![SchemaName::SymbolicName("Type".to_owned())],
+                    range: (1, -1),
+                    properties: None,
+                }
+            ))
+        );
+    }
 }
