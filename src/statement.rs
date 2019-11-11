@@ -37,10 +37,7 @@ pub struct Union {
 }
 
 pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
-    match parse_query(input) {
-        Ok((i, query)) => Ok((i, Statement { query })),
-        Err(e) => Err(e),
-    }
+    map(parse_query, |v| Statement { query: v })(input)
 }
 
 pub fn parse_query(input: &str) -> IResult<&str, Query> {
@@ -51,19 +48,19 @@ pub fn parse_query(input: &str) -> IResult<&str, Query> {
 }
 
 pub fn parse_regular_query(input: &str) -> IResult<&str, RegularQuery> {
-    match tuple((parse_single_query, opt(tuple((white_space, parse_union)))))(input) {
-        Ok((o, (single, union))) => Ok((
-            o,
-            RegularQuery {
-                single_query: single,
-                union: match union {
-                    Some((_, u)) => Some(u),
-                    None => None,
-                },
-            },
+    map(
+        tuple((
+            parse_single_query,
+            map(opt(tuple((white_space, parse_union))), |v| match v {
+                Some((_, w)) => Some(w),
+                None => None,
+            }),
         )),
-        Err(e) => Err(e),
-    }
+        |v| RegularQuery {
+            single_query: v.0,
+            union: v.1,
+        },
+    )(input)
 }
 
 pub fn parse_stand_alone_call(input: &str) -> IResult<&str, StandAloneCall> {
@@ -82,26 +79,22 @@ pub fn parse_single_query(input: &str) -> IResult<&str, SingleQuery> {
 }
 
 pub fn parse_union(input: &str) -> IResult<&str, Union> {
-    match tuple((
-        tag_no_case("UNION"),
-        white_space,
-        opt(tag_no_case("ALL")),
-        white_space,
-        parse_single_query,
-    ))(input)
-    {
-        Ok((o, (_, _, all, _, single))) => Ok((
-            o,
-            Union {
-                all: match all {
-                    Some(_) => true,
-                    None => false,
-                },
-                single_query: single,
-            },
+    map(
+        tuple((
+            tag_no_case("UNION"),
+            white_space,
+            map(opt(tag_no_case("ALL")), |v| match v {
+                Some(_) => true,
+                _ => false,
+            }),
+            white_space,
+            parse_single_query,
         )),
-        Err(e) => Err(e),
-    }
+        |v| Union {
+            all: v.2,
+            single_query: v.4,
+        },
+    )(input)
 }
 
 #[cfg(test)]

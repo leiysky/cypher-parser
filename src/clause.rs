@@ -71,17 +71,12 @@ pub fn parse_single_part_query(input: &str) -> IResult<&str, SinglePartQuery> {
     alt((
         map(
             tuple((
-                many0(tuple((parse_reading_clause, white_space))),
+                many0(map(tuple((parse_reading_clause, white_space)), |v| v.0)),
                 parse_return,
             )),
             |res| match res {
                 (readings, ret) => SinglePartQuery {
-                    reading_clauses: readings
-                        .into_iter()
-                        .map(|x| match x {
-                            (r, _) => r,
-                        })
-                        .collect(),
+                    reading_clauses: readings,
                     updating_clauses: Vec::new(),
                     ret: Some(ret),
                 },
@@ -89,22 +84,17 @@ pub fn parse_single_part_query(input: &str) -> IResult<&str, SinglePartQuery> {
         ),
         map(
             tuple((
-                many0(tuple((parse_reading_clause, white_space))),
+                many0(map(tuple((parse_reading_clause, white_space)), |v| v.0)),
                 parse_updating_clause,
-                many0(tuple((parse_updating_clause, white_space))),
-                opt(parse_return),
+                many0(map(tuple((white_space, parse_updating_clause)), |v| v.1)),
+                opt(map(tuple((white_space, parse_return)), |v| v.1)),
             )),
             |res| match res {
                 (readings, updating, updatings, ret) => {
                     let mut updating_clauses: Vec<UpdatingClause> = vec![updating];
-                    updating_clauses.extend(updatings.into_iter().map(|x| x.0));
+                    updating_clauses.extend(updatings);
                     SinglePartQuery {
-                        reading_clauses: readings
-                            .into_iter()
-                            .map(|x| match x {
-                                (r, _) => r,
-                            })
-                            .collect(),
+                        reading_clauses: readings,
                         updating_clauses: updating_clauses,
                         ret: ret,
                     }
@@ -136,25 +126,24 @@ pub fn parse_updating_clause(input: &str) -> IResult<&str, UpdatingClause> {
 }
 
 pub fn parse_return(input: &str) -> IResult<&str, Return> {
-    match tuple((
-        tag_no_case("RETURN"),
-        opt(tuple((white_space, tag_no_case("DISTINCT")))),
-        white_space,
-        parse_return_body,
-    ))(input)
-    {
-        Ok((o, (_, distinct, _, return_body))) => Ok((
-            o,
-            Return {
-                distinct: match distinct {
+    map(
+        tuple((
+            tag_no_case("RETURN"),
+            map(
+                opt(tuple((white_space, tag_no_case("DISTINCT")))),
+                |v| match v {
                     Some(_) => true,
-                    None => false,
+                    _ => false,
                 },
-                return_body: return_body,
-            },
+            ),
+            white_space,
+            parse_return_body,
         )),
-        Err(e) => Err(e),
-    }
+        |v| Return {
+            distinct: v.1,
+            return_body: v.3,
+        },
+    )(input)
 }
 
 pub fn parse_return_body(input: &str) -> IResult<&str, ReturnBody> {
@@ -162,34 +151,30 @@ pub fn parse_return_body(input: &str) -> IResult<&str, ReturnBody> {
 }
 
 pub fn parse_match(input: &str) -> IResult<&str, Match> {
-    match tuple((
-        opt(tuple((tag_no_case("OPTIONAL"), white_space))),
-        tag_no_case("MATCH"),
-        white_space,
-        parse_pattern,
-        opt(tuple((white_space, parse_where))),
-    ))(input)
-    {
-        Ok((o, (optional, _, _, pattern, where_clause))) => Ok((
-            o,
-            Match {
-                optional: match optional {
+    map(
+        tuple((
+            map(
+                opt(tuple((tag_no_case("OPTIONAL"), white_space))),
+                |v| match v {
                     Some(_) => true,
-                    None => false,
+                    _ => false,
                 },
-                pattern: pattern,
-                where_clause: match where_clause {
-                    Some((_, w)) => Some(w),
-                    None => None,
-                },
-            },
+            ),
+            tag_no_case("MATCH"),
+            white_space,
+            parse_pattern,
+            opt(map(tuple((white_space, parse_where)), |v| v.1)),
         )),
-        Err(e) => Err(e),
-    }
+        |v| Match {
+            optional: v.0,
+            pattern: v.3,
+            where_clause: v.4,
+        },
+    )(input)
 }
 
 pub fn parse_unwind(input: &str) -> IResult<&str, Unwind> {
-    Ok((input, Unwind {}))
+    unimplemented!()
 }
 
 pub fn parse_create(input: &str) -> IResult<&str, Create> {
