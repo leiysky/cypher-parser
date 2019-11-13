@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 nom = "5"
+unicode-xid = "0.0.4"

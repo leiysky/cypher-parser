@@ -1,4 +1,5 @@
 extern crate nom;
+extern crate unicode_xid;
 
 #[macro_use]
 pub mod keywords;

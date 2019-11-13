@@ -42,7 +42,7 @@ pub fn parse_schema_name(input: &str) -> IResult<&str, SchemaName> {
 }
 
 pub fn parse_symbolic_name(input: &str) -> IResult<&str, SymbolicName> {
-    Ok(("", input.to_owned()))
+    map(unescaped_str, |s| s.to_owned())(input)
 }
 
 pub fn parse_reserved_word(input: &str) -> IResult<&str, ReservedWord> {
